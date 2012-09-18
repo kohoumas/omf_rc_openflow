@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+
+require 'omf_common'
+$stdout.sync = true
+
+include OmfCommon
+
+options = {
+  user: 'user',
+  password: 'pw',
+  server: 'srv.mytestbed.net', # XMPP pubsub server domain
+  uid: 'flowvisor',
+  debug: false
+}
+
+flowvisor_id = options[:uid]
+
+Logging.logger.root.level = options[:debug] ? :debug : :info
+Blather.logger = logger
+
+# We will use Comm directly, with default DSL implementaion :xmpp
+comm = Comm.new(:xmpp)
+
+flowvisor_topic = comm.get_topic(flowvisor_id)
+
+port2ip = {
+  16 => '10.0.1.18',
+  21 => '10.0.1.19',
+  23 => '10.0.1.20',
+  15 => '10.0.1.21'
+}
+
+port2eth = {
+  16 => '00:03:2d:0d:30:c0',
+  21 => '00:03:2d:0d:30:d4',
+  23 => '00:03:2d:0d:30:cc',
+  15 => '00:03:2d:0d:30:ce'
+}
+
+#flowvisor_topic.on_message proc { |m| m.operation != :inform } do |message|
+#  logger.warn message
+#end
+
+# messages { key: Topic }
+msgs = {
+  create_1:  comm.create_message([type: 'openflow_slice', name: 'test1']),
+  create_2:  comm.create_message([type: 'openflow_slice', name: 'test2', controller_port: '9934']),
+
+  config_1a: comm.configure_message([{flows: {operation: 'add', device: 'all', eth_src: port2eth[16]}}]),
+  config_1b: comm.configure_message([{flows: {operation: 'add', device: 'all', eth_src: port2eth[21]}}]),
+  config_1c: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:02', in_port: '1', eth_src: port2eth[16]}}]),
+  config_1d: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:01', in_port: '1', eth_src: port2eth[21]}}]),
+
+  config_2a: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:01', in_port: '15'}}]),
+  config_2b: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:02', in_port: '23'}}]),
+  config_2c: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:02', in_port: '1', eth_src: port2eth[15]}}]),
+  config_2d: comm.configure_message([{flows: {operation: 'add', device: '00:00:00:00:00:00:00:01', in_port: '1', eth_src: port2eth[23]}}]),
+}
+
+%w{create_1 create_2}.each do |s|
+  msgs[s.to_sym].on_inform_failed do |message|
+    logger.error "Resource creation failed ---"
+    logger.error message.read_content("reason")
+  end
+end
+
+%w{config_1a config_1b config_1c config_1d config_2a config_2b config_2c config_2d}.each do |s|
+  msgs[s.to_sym].on_inform_status do |message|
+    message.each_property do |p|
+      logger.info "#{p.attr('key')} => #{p.content.strip}"
+    end
+  end
+end
+
+msgs[:create_1].on_inform_created do |message|
+  slice_topic = comm.get_topic(message.resource_id)
+  slice_id = slice_topic.id
+
+  msgs[:release_1] ||= comm.release_message { |m| m.element('resource_id', slice_id) }
+
+  msgs[:release_1].on_inform_released do |message|
+    logger.info "Slice (#{message.resource_id}) deleted (resource released)"
+  end
+
+  logger.info "Slice #{slice_id} ready for testing"
+
+  slice_topic.subscribe do
+    msgs[:config_1a].publish slice_id
+#    msgs[:config_1b].publish slice_id
+#    msgs[:config_1c].publish slice_id
+#    msgs[:config_1d].publish slice_id
+  end
+end
+
+msgs[:create_2].on_inform_created do |message|
+  slice_topic = comm.get_topic(message.resource_id)
+  slice_id = slice_topic.id
+
+  msgs[:release_2] ||= comm.release_message { |m| m.element('resource_id', slice_id) }
+
+  msgs[:release_2].on_inform_released do |message|
+    logger.info "Slice (#{message.resource_id}) deleted (resource released)"
+  end
+
+  logger.info "Slice #{slice_id} ready for testing"
+
+  slice_topic.subscribe do
+    msgs[:config_2a].publish slice_id
+#    msgs[:config_2b].publish slice_id
+#    msgs[:config_2c].publish slice_id
+#    msgs[:config_2d].publish slice_id
+  end
+end
+
+# Then we can register event handlers to the communicator
+#
+# Event triggered when connection is ready
+comm.when_ready do
+  logger.info "CONNECTED: #{comm.jid.inspect}"
+
+  # We assume that a openflow_slice_factory (flowvisor) resource proxy instance is up already, so we subscribe to its pubsub topic
+  flowvisor_topic.subscribe do
+    # If subscribed, we publish a 'create' message, 'create' a new openflow slice for testing
+    msgs[:create_1].publish flowvisor_id
+    msgs[:create_2].publish flowvisor_id
+  end
+end
+
+EM.run do
+  comm.connect(options[:user], options[:password], options[:server])
+
+  trap(:INT) do 
+    msgs[:release_1].publish flowvisor_id
+    msgs[:release_2].publish flowvisor_id
+    comm.disconnect
+  end
+  trap(:TERM) do 
+    msgs[:release_1].publish flowvisor_id
+    msgs[:release_2].publish flowvisor_id
+    comm.disconnect
+  end
+end
