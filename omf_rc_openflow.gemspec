@@ -6,7 +6,7 @@ Gem::Specification.new do |gem|
   gem.email         = ["kohoumas@gmail.com"]
   gem.description   = %q{OMF Resource Controllers related to Openflow}
   gem.summary       = %q{OMF Resource Controllers related to Openflow}
-  gem.homepage      = ""
+  gem.homepage      = "http://nitlab.inf.uth.gr"
 
   gem.files         = `git ls-files`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
