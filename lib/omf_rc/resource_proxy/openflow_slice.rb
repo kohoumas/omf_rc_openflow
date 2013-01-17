@@ -12,7 +12,7 @@ module OmfRc::ResourceProxy::OpenflowSlice
   }
 
 
-  register_proxy :openflow_slice
+  register_proxy :openflow_slice, :create_by => :openflow_slice_factory
 
   utility :openflow_tools
 

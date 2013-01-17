@@ -33,6 +33,7 @@ module OmfRc::ResourceProxy::OpenflowSliceFactory
       raise "This resource is not connected with a flowvisor instance, so it cannot create openflow slices"
     end
     opts.property ||= Hashie::Mash.new
+    opts.property.provider = ">> #{resource.uid}"
     opts.property.flowvisor_connection_args = resource.property.flowvisor_connection_args
   end
 
