@@ -3,6 +3,8 @@
 require "optparse"
 require 'omf_rc'
 require 'omf_rc/resource_factory'
+require 'omf_rc_openflow'
+
 $stdout.sync = true
 
 options = {
@@ -71,9 +73,6 @@ if options[:log_file_dir] && File.exist?(options[:log_file_dir])
       :layout => Logging.layouts.pattern(:date_pattern => '%F %T %z',
                                          :pattern => '[%d] %-5l %c: %m\n')))
 end
-
-#OmfRc::ResourceFactory.load_default_resource_proxies
-OmfRc::ResourceFactory.load_addtional_resource_proxies("../lib/omf_rc/resource_proxy")
 
 EM.run do
   openflow_slice_factory = OmfRc::ResourceFactory.new(:openflow_slice_factory, options)
