@@ -4,6 +4,7 @@ require "optparse"
 require 'omf_rc'
 require 'omf_rc/resource_factory'
 require 'omf_rc_openflow'
+
 $stdout.sync = true
 
 options = {
@@ -75,7 +76,7 @@ end
 
 EM.run do
   virtual_openflow_switch_factory = OmfRc::ResourceFactory.new(:virtual_openflow_switch_factory, options)
-  virtual_openflow_switch_factory
+  virtual_openflow_switch_factory.connect
 
   trap(:INT) { virtual_openflow_switch_factory.disconnect }
   trap(:TERM) { virtual_openflow_switch_factory.disconnect }
