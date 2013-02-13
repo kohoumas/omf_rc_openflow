@@ -1,6 +1,6 @@
 require 'xmlrpc/client'
 
-module OmfRc::Util::OpenflowTools
+module OmfRc::Util::OpenflowSliceTools
   include OmfRc::ResourceProxyDSL
 
   # The version of the flowvisor that this resource is able to control 
@@ -71,7 +71,6 @@ module OmfRc::Util::OpenflowTools
   end
 
   work :transformed_parameters do |resource, parameters|
-
     match = []
     FLOW_MATCH_FEATURES.each do |feature|
       match << "#{feature}=#{parameters[feature]}" if parameters[feature]

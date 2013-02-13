@@ -15,7 +15,7 @@ msgs = {
   config_slice: @comm.configure_message([name: 'test', contact_email: 'a@a']),
   slices: @comm.request_message([:slices]),
   config_flows: @comm.configure_message([flows: [{operation: 'add', device: '00:00:00:00:00:00:00:01', eth_dst: '11:22:33:44:55:66'},
-                                                 {operation: 'add', device: '00:00:00:00:00:00:00:01', eth_dst: '11:22:33:44:55:77'}]]),
+                                                 {operation: 'add', device: '00:00:00:00:00:00:00:01', eth_dst: '11:22:33:44:55:77'}]),
 }
 
 @flowvisor_topic.subscribe {msgs[:create_slice].publish @flowvisor_id}

@@ -37,6 +37,7 @@ module OmfRc::ResourceProxy::OpenflowSliceFactory
     opts.property.flowvisor_connection_args = resource.property.flowvisor_connection_args
   end
 
+
   # A new resource uses the default connection arguments (ip adress, port, etc) to connect with a flowvisor instance
   hook :before_ready do |resource|
     resource.property.flowvisor_connection_args = FLOWVISOR_CONNECTION_DEFAULTS

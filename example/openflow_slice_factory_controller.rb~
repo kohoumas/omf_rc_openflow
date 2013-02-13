@@ -19,7 +19,6 @@ opts = {
 
 Logging.logger.root.level = :debug if opts[:debug]
 
-OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/util")
 OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/resource_proxy")
 
 EM.run do
