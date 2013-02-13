@@ -4,8 +4,8 @@ require File.expand_path('../lib/omf_rc_openflow/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["Kostas Choumas"]
   gem.email         = ["kohoumas@gmail.com"]
-  gem.description   = %q{OMF6 Resource Controllers related to the Openflow technology}
-  gem.summary       = %q{OMF6 Resource Controllers related to the Openflow technology, including the Stanford software tools named FlowVisor and OpenvSwitch}
+  gem.description   = %q{OMF Resource Controllers related to Openflow}
+  gem.summary       = %q{OMF Resource Controllers related to Openflow}
   gem.homepage      = "http://nitlab.inf.uth.gr"
 
   gem.files         = `git ls-files`.split($\)

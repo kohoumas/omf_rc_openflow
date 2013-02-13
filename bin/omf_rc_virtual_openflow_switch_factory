@@ -4,7 +4,6 @@ require "optparse"
 require 'omf_rc'
 require 'omf_rc/resource_factory'
 require 'omf_rc_openflow'
-
 $stdout.sync = true
 
 options = {
