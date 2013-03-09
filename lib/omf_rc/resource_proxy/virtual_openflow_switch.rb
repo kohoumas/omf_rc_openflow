@@ -8,11 +8,8 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitch
 
   utility :virtual_openflow_switch_tools
 
+  property :name, :default => nil
 
-  # Switch name is initiated with value "nil"
-  hook :before_ready do |resource|
-    resource.property.name = nil
-  end
 
   # Before release, the related ovsdb-server instance should also remove the corresponding switch
   hook :before_release do |resource|
@@ -42,42 +39,6 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitch
     resource.ovs_connection("ovsdb-server", arguments)
   end
 
-
-  # Switch name is one-time configured
-  configure :name do |resource, name|
-    raise "The name cannot be changed" if resource.property.name
-    resource.property.name = name.to_s
-    arguments = {
-      "method" => "transact",
-      "params" => [ "Open_vSwitch",
-                    { "op" => "insert",
-                      "table" => "Interface",
-                      "row" => {"name" => resource.property.name, "type" => "internal"},
-                      "uuid-name" => "new_interface"
-                    },
-                    { "op" => "insert",
-                      "table" => "Port",
-                      "row" => {"name" => resource.property.name, "interfaces" => ["named-uuid", "new_interface"]},
-                      "uuid-name" => "new_port"
-                    },
-                    { "op" => "insert",
-                      "table" => "Bridge",
-                      "row" => {"name" => resource.property.name, "ports" => ["named-uuid", "new_port"], "datapath_type" => "netdev"},
-                      "uuid-name" => "new_bridge"
-                    },
-                    { "op" => "mutate",
-                      "table" => "Open_vSwitch",
-                      "where" => [],
-                      "mutations" => [["bridges", "insert", ["set", [["named-uuid", "new_bridge"]]]]]
-                    }
-                  ],
-      "id" => "add-switch"
-    }
-    result = resource.ovs_connection("ovsdb-server", arguments)["result"]
-    raise "The requested switch already existed in ovsdb-server or there is another problem" if result[4]
-    resource.property.uuid = result[2]["uuid"][1]
-    resource.property.name
-  end
 
   # Add/remove port
   configure :ports do |resource, array_parameters|

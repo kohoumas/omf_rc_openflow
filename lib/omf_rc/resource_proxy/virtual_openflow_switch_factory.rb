@@ -8,10 +8,10 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitchFactory
     ovsdb_server_host:   "localhost",
     ovsdb_server_port:   "6635",
     ovsdb_server_socket: "/usr/local/var/run/openvswitch/db.sock",
-    ovsdb_server_conn:   "unix", # default "unix" between "tcp" and "unix"
+    ovsdb_server_conn:   "unix", # default "unix", between "tcp" and "unix"
     ovs_vswitchd_pid:    "/usr/local/var/run/openvswitch/ovs-vswitchd.pid",
     ovs_vswitchd_socket: "/usr/local/var/run/openvswitch/ovs-vswitchd.%s.ctl",
-    ovs_vswitchd_conn:   "unix" #default "unix"
+    ovs_vswitchd_conn:   "unix" #default "unix", between "tcp" and "unix"
   }
 
 
@@ -21,23 +21,43 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitchFactory
 
 
   # Checks if the created child is an :virtual_openflow_switch resource and passes the connection arguments
-  hook :before_create do |resource, type, opts = nil|
+  hook :before_create do |resource, type, opts|
     if type.to_sym != :virtual_openflow_switch
       raise "This resource doesn't create resources of type "+type
     end
-    begin
-      arguments = {
-        "method" => "list_dbs",
-        "params" => [],
-        "id" => "list_dbs"
-      }
-      resource.ovs_connection("ovsdb-server", arguments)
-    rescue
-      raise "This resource is not connected with an ovsdb-server instance, so it cannot create virtual openflow switches"
-    end
+    #opts = Hashie::Mash.new(opts)
+    arguments = {
+      "method" => "transact",
+      "params" => [ "Open_vSwitch",
+                    { "op" => "insert",
+                      "table" => "Interface",
+                      "row" => {"name" => opts.name.to_s, "type" => "internal"},
+                      "uuid-name" => "new_interface"
+                    },
+                    { "op" => "insert",
+                      "table" => "Port",
+                      "row" => {"name" => opts.name.to_s, "interfaces" => ["named-uuid", "new_interface"]},
+                      "uuid-name" => "new_port"
+                    },
+                    { "op" => "insert",
+                      "table" => "Bridge",
+                      "row" => {"name" => opts.name.to_s, "ports" => ["named-uuid", "new_port"], "datapath_type" => "netdev"},
+                      "uuid-name" => "new_bridge"
+                    },
+                    { "op" => "mutate",
+                      "table" => "Open_vSwitch",
+                      "where" => [],
+                      "mutations" => [["bridges", "insert", ["set", [["named-uuid", "new_bridge"]]]]]
+                    }
+                  ],
+      "id" => "add-switch"
+    }
+    result = resource.ovs_connection("ovsdb-server", arguments)["result"]
+    raise "The requested switch already existed in ovsdb-server or other problem" if result[4]
     opts.property ||= Hashie::Mash.new
     opts.property.provider = ">> #{resource.uid}"
     opts.property.ovs_connection_args = resource.property.ovs_connection_args
+    opts.property.uuid = result[2]["uuid"][1]
   end
 
   # A new resource uses the default connection arguments (ip adress, port, socket, etc) to connect with a ovsdb-server instance

@@ -3,32 +3,38 @@
 require 'omf_rc'
 require 'omf_rc/resource_factory'
 #require 'omf_rc_openflow'
+
 $stdout.sync = true
 
-Blather.logger = logger
+
+op_mode = :development
 
 opts = {
-  # XMPP server domain
-  server: 'srv.mytestbed.net',
-  user: 'flowvisor',
-  password: 'pw',
-  uid: 'flowvisor',
-  # Debug mode of not
-  debug: false
+  communication: { url: 'xmpp://flowvisor:pw@srv.mytestbed.net' },
+  eventloop: { type: :em },
+  logging: {
+    level: 'info'
+  #  level: 'debug',
+  #  appenders: {
+  #    stdout: {
+  #      date_pattern: '%H:%M:%S',
+  #      pattern: '%d %-5l %c{2}: %m\n',
+  #      color_scheme: 'default'
+  #    }
+  #  }
+  }
 }
-
-Logging.logger.root.level = :debug if opts[:debug]
 
 OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/util")
 OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/resource_proxy")
 
-EM.run do
-  # Use resource factory method to initialise a new instance of garage
-  info "Starting #{opts[:uid]}"
-  flowvisor = OmfRc::ResourceFactory.new(:openflow_slice_factory, opts)
-  flowvisor.connect
+OmfCommon.init(op_mode, opts) do |el|
+  OmfCommon.comm.on_connected do |comm|
+    info ">>> Starting flowvisor"
 
-  # Disconnect garage from XMPP server, when these two signals received
-  trap(:INT) { flowvisor.disconnect }
-  trap(:TERM) { flowvisor.disconnect }
+    flowvisor = OmfRc::ResourceFactory.new(:openflow_slice_factory, opts.merge(uid: 'flowvisor'))
+
+    # Disconnect garage from XMPP server, when INT or TERM signals received
+    comm.on_interrupted { flowvisor.disconnect }
+  end
 end

@@ -16,6 +16,13 @@ module OmfRc::ResourceProxy::OpenflowSliceFactory
     timeout:    nil
   }
 
+  # The default parameters of a new slice. The openflow controller is assumed to be in the same working station with flowvisor instance
+  SLICE_DEFAULTS = {
+    passwd: "1234",
+    url:    "tcp:127.0.0.1:9933",
+    email:  "nothing@nowhere"
+  }
+
 
   register_proxy :openflow_slice_factory
 
@@ -23,15 +30,14 @@ module OmfRc::ResourceProxy::OpenflowSliceFactory
 
 
   # Checks if the created child is an :openflow_slice resource and passes the connection arguments that are essential for the connection with flowvisor instance
-  hook :before_create do |resource, type, opts = nil|
+  hook :before_create do |resource, type, opts|
     if type.to_sym != :openflow_slice
       raise "This resource doesn't create resources of type "+type
+    elsif opts.name == nil
+      raise "The created slice must be configured with a name"
     end
-    begin
-      resource.flowvisor_connection
-    rescue
-      raise "This resource is not connected with a flowvisor instance, so it cannot create openflow slices"
-    end
+    #opts = Hashie::Mash.new(opts)
+    resource.flowvisor_connection.call("api.createSlice", opts.name.to_s, *SLICE_DEFAULTS.values)
     opts.property ||= Hashie::Mash.new
     opts.property.provider = ">> #{resource.uid}"
     opts.property.flowvisor_connection_args = resource.property.flowvisor_connection_args

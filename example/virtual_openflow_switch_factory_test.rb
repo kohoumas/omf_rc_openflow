@@ -1,74 +1,60 @@
 # OMF_VERSIONS = 6.0
 
-@comm = OmfEc.comm
+#msgs = {
+#  request_port: @comm.request_message([port: {name: 'tun0', information: 'netdev-tunnel/get-port'}]),
+#  configure_port: @comm.configure_message([port: {name: 'tun0', remote_ip: '138.48.3.201', remote_port: '39505'}]),
+#}
 
-# @comm is default communicator defined in script runner
-#
-@ovs_id = "ovs"
-@ovs_topic = @comm.get_topic(@ovs_id)
+def create_switch(ovs)
+  ovs.create(:virtual_openflow_switch, {name: "test"}) do |reply_msg|
+    if !reply_msg.itype.start_with? "ERROR" #success?
+      switch = reply_msg.resource
 
-@switch_id = nil
-@switch_topic = nil
+      switch.on_subscribed do
+        info ">>> Connected to newly created switch #{reply_msg[:res_id]} with name #{reply_msg[:name]}"
+        on_switch_created(switch)
+      end
 
-
-msgs = {
-  switches: @comm.request_message([:switches]),
-  create_switch: @comm.create_message([type: 'virtual_openflow_switch']),
-  config_switch_name: @comm.configure_message([name: 'br0']),
-  config_add_port: @comm.configure_message([ports: {operation: 'add', name: 'tun0', type: 'tunnel'}]),
-  request_port: @comm.request_message([port: {information: 'netdev-tunnel/get-port', name: 'tun0'}]),
-  configure_port: @comm.configure_message([port: {name: 'tun0', remote_ip: '138.48.3.201', remote_port: '39505'}]),
-}
-
-@ovs_topic.subscribe {msgs[:switches].publish @ovs_id}
-
-# If flowvisor is not raised, the following rule will be activated.
-@ovs_topic.on_message lambda {|m| m.operation == :inform && m.read_content('inform_type') == 'CREATION_FAILED' } do |message|
-  logger.error message.read_content('reason')
-  done!
-end
-
-msgs[:switches].on_inform_status do |message|
-  logger.info "OVS (#{message.read_property('uid')}) requested switches: #{message.read_property('switches')}"
-  msgs[:create_switch].publish @ovs_id
-end
-
-msgs[:create_switch].on_inform_creation_ok do |message|
-  @switch_id = message.resource_id
-  @switch_topic = @comm.get_topic(@switch_id)
- 
-  msgs[:release_switch] ||= @comm.release_message {|m| m.element('resource_id', @switch_id)}
-  msgs[:release_switch].on_inform_released do |message|
-    logger.info "Switch (#{@switch_id}) released"
-    m = @comm.request_message([:switches])
-    m.on_inform_status do |message|
-      logger.info "OVS (#{message.read_property('uid')}) requested switches: #{message.read_property('switches')}"
-      done!
+      after(10) do
+        ovs.release(switch) do |reply_msg|
+          info ">>> Released switch #{reply_msg[:res_id]}"
+        end
+      end
+    else
+      error ">>> Switch creation failed - #{reply_msg[:reason]}"
     end
-    m.publish @ovs_id
   end
-  
-  logger.info "Switch (#{@switch_id}) created"
-  @switch_topic.subscribe {msgs[:config_switch_name].publish @switch_id}
 end
 
-msgs[:config_switch_name].on_inform_status do |message|
-  logger.info "Switch (#{message.read_property('uid')}) configured name: #{message.read_property('name')}"
-  msgs[:config_add_port].publish @switch_id
+def on_switch_created(switch)
+
+  switch.configure(ports: {operation: 'add', name: 'tun0', type: 'tunnel'}) do |reply_msg|
+    info "> Switch configured ports: #{reply_msg[:ports]}"
+    switch.configure(port: {name: 'tun0', remote_ip: '138.48.3.201', remote_port: '39505'}) do |reply_msg|
+      info "> Switch configured port: #{reply_msg[:port]}"
+    end
+  end
+
+  # Monitor all status, error or warn information from the switch
+  #switch.on_status do |msg|
+  #  msg.each_property do |name, value|
+  #    info "#{name} => #{value}"
+  #  end
+  #end
+  switch.on_error do |msg|
+    error msg[:reason]
+  end
+  switch.on_warn do |msg|
+    warn msg[:reason]
+  end
 end
 
-msgs[:config_add_port].on_inform_status do |message|
-  logger.info "Switch (#{message.read_property('uid')}) configured ports: #{message.read_property('ports')}"
-  msgs[:request_port].publish @switch_id
-end
+OmfCommon.comm.subscribe('ovs') do |ovs|
+  unless ovs.error?
+    create_switch(ovs)
+  else
+    error ovs.inspect
+  end
 
-msgs[:request_port].on_inform_status do |message|
-  logger.info "Switch (#{message.read_property('uid')}) requested port: #{message.read_property('port')}"
-  msgs[:configure_port].publish @switch_id
+  after(20) { info 'Disconnecting ...'; OmfCommon.comm.disconnect }
 end
-
-msgs[:configure_port].on_inform_status do |message|
-  logger.info "Switch (#{message.read_property('uid')}) configured port: #{message.read_property('port')}"
-  msgs[:release_switch].publish @ovs_id
-end
-

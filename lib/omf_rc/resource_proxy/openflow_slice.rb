@@ -4,45 +4,19 @@
 module OmfRc::ResourceProxy::OpenflowSlice
   include OmfRc::ResourceProxyDSL
 
-  # The default parameters of a new slice. The openflow controller is assumed to be in the same working station with flowvisor instance
-  SLICE_DEFAULTS = {
-    passwd: "1234",
-    url:    "tcp:127.0.0.1:9933",
-    email:  "nothing@nowhere"
-  }
-
 
   register_proxy :openflow_slice, :create_by => :openflow_slice_factory
 
   utility :openflow_slice_tools
 
+  property :name, :default => nil
 
-  # Slice's name is initiated with value "nil"
-  hook :before_ready do |resource|
-    resource.property.name = nil
-  end
 
   # Before release, the related flowvisor instance should also remove the corresponding slice
   hook :before_release do |resource|
     resource.flowvisor_connection.call("api.deleteSlice", resource.property.name)
   end
 
-
-  # The name is one-time configured
-  configure :name do |resource, name|
-    raise "The name cannot be changed" if resource.property.name
-    resource.property.name = name.to_s
-    begin
-      resource.flowvisor_connection.call("api.createSlice", name.to_s, *SLICE_DEFAULTS.values)
-    rescue Exception => e
-      if e.message["Cannot create slice with existing name"]
-        logger.warn message = "The requested slice already existed in Flowvisor"
-      else
-        raise e
-      end
-    end
-    resource.property.name
-  end
 
   # Configures the slice password
   configure :passwd do |resource, passwd|

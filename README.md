@@ -25,11 +25,11 @@ Or install it yourself as:
 
 In a Linux machine that runs FlowVisor or OpenvSwitch software, execute:
 
-    $ omf_rc_openflow_slice_factory
+    $ omf_rc_openflow_slice_factory -u xmpp://user:password@domain -i topic
 
 Or execute:
 
-    $ omf_rc_virtual_openflow_slice_factory
+    $ omf_rc_virtual_openflow_slice_factory -u xmpp://user:password@domain -i topic
 
 to control the FlowVisor or OpenvSwitch resource in a OMF6 Experiment Controller (EC).
 
