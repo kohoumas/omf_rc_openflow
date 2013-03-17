@@ -2,7 +2,7 @@
 
 def create_slice(flowvisor)
   flowvisor.create(:openflow_slice, {name: "test"}) do |reply_msg|
-    if !reply_msg.itype.start_with? "ERROR" #success?
+    if reply_msg.success?
       slice = reply_msg.resource
 
       slice.on_subscribed do

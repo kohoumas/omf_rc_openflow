@@ -36,8 +36,8 @@ module OmfRc::Util::VirtualOpenflowSwitchTools
     JSON.parse(string)
   end
 
-  # Internal function that returns the ports of a specific switch
-  work :ports do |resource|
+  # Internal function that returns the switch ports with interfaces of the specified type, if this type is given
+  work :ports do |resource, type = nil|
     arguments = {
       "method" => "transact", 
       "params" => [ "Open_vSwitch", 
@@ -54,9 +54,21 @@ module OmfRc::Util::VirtualOpenflowSwitchTools
                   ],
       "id" => "ports"
     }
+    if type
+      arguments["params"] << { "op" => "select", 
+                               "table" => "Interface", 
+                               "where" => [["type", "==", type.to_s]], 
+                               "columns" => ["name"]
+                             }
+    end
     result = resource.ovs_connection("ovsdb-server", arguments)["result"]
-    uuid2name = Hash[result[1]["rows"].map {|hash_uuid_name| [hash_uuid_name["_uuid"][1], hash_uuid_name["name"]]}]
-    uuids = result[0]["rows"][0]["ports"][1].map {|array_uuid| array_uuid[1]}
-    uuids.map {|v| uuid2name[v]}
+    uuid2name = Hashie::Mash.new(Hash[result[1]["rows"].map {|h| [h["_uuid"][1], h["name"]]}]) # hash-table port uuid=>name
+    uuids = result[0]["rows"][0]["ports"][1].map {|a| a[1]} # The uuids of the switch ports
+    ports = uuids.map {|v| uuid2name[v]} # The names of the switch ports
+    if type
+      ports_of_type = result[2]["rows"].map {|h| h["name"]} # The names of the ports with interfaces of the specified type
+      ports = ports & ports_of_type # The names of the switch ports with interfaces of the specified type
+    end
+    ports
   end
 end

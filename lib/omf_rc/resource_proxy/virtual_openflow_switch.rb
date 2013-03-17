@@ -40,7 +40,7 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitch
   end
 
 
-  # Add/remove port
+  # Add/remove ports to this switch
   configure :ports do |resource, array_parameters|
     array_parameters = [array_parameters] if !array_parameters.kind_of?(Array)
     array_parameters.each do |parameters|
@@ -75,18 +75,22 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitch
     resource.ports
   end
 
-  # Request port information (XXX: very restrictive, just to support our case)
-  request :port do |resource, parameters|
-    arguments = {
-      "method" => parameters.information,
-      "params" => [parameters.name],
-      "id" => "port-info"
-    }
-    resource.ovs_connection("ovs-vswitchd", arguments)["result"]
+  # Request tunnel port numbers of this switch
+  request :tunnel_port_numbers do |resource|
+    ports = resource.ports("tunnel")
+    port_num = ports.map do |port|
+      arguments = {
+        "method" => "netdev-tunnel/get-port",
+        "params" => [port],
+        "id" => "port-number"
+      }
+      [port, resource.ovs_connection("ovs-vswitchd", arguments)["result"]]
+    end
+    Hashie::Mash.new(Hash[port_num])
   end
 
-  # Configure port (XXX: very restrictive, just to support our case)
-  configure :port do |resource, parameters|
+  # Configure tunnel ports
+  configure :tunnel_port do |resource, parameters|
     arguments = {
       "method" => "transact",
       "params" => [ "Open_vSwitch",
@@ -97,7 +101,7 @@ module OmfRc::ResourceProxy::VirtualOpenflowSwitch
                          [["remote_ip", parameters.remote_ip], ["remote_port", parameters.remote_port.to_s]]]]]
                     }
                   ],
-      "id" => "configure-port"
+      "id" => "configure-tunnel-port"
     }
     resource.ovs_connection("ovsdb-server", arguments)["result"]
   end

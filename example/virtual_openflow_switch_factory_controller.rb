@@ -25,8 +25,8 @@ opts = {
   }
 }
 
-OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/util")
-OmfRc::ResourceFactory.load_addtional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/resource_proxy")
+OmfRc::ResourceFactory.load_additional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/util")
+OmfRc::ResourceFactory.load_additional_resource_proxies(File.dirname(__FILE__)+"/../lib/omf_rc/resource_proxy")
 
 OmfCommon.init(op_mode, opts) do |el|
   OmfCommon.comm.on_connected do |comm|

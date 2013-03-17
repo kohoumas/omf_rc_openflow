@@ -1,13 +1,8 @@
 # OMF_VERSIONS = 6.0
 
-#msgs = {
-#  request_port: @comm.request_message([port: {name: 'tun0', information: 'netdev-tunnel/get-port'}]),
-#  configure_port: @comm.configure_message([port: {name: 'tun0', remote_ip: '138.48.3.201', remote_port: '39505'}]),
-#}
-
 def create_switch(ovs)
   ovs.create(:virtual_openflow_switch, {name: "test"}) do |reply_msg|
-    if !reply_msg.itype.start_with? "ERROR" #success?
+    if reply_msg.success?
       switch = reply_msg.resource
 
       switch.on_subscribed do
@@ -30,8 +25,11 @@ def on_switch_created(switch)
 
   switch.configure(ports: {operation: 'add', name: 'tun0', type: 'tunnel'}) do |reply_msg|
     info "> Switch configured ports: #{reply_msg[:ports]}"
-    switch.configure(port: {name: 'tun0', remote_ip: '138.48.3.201', remote_port: '39505'}) do |reply_msg|
-      info "> Switch configured port: #{reply_msg[:port]}"
+    switch.request([:tunnel_port_numbers]) do |reply_msg|
+      info "> Switch requested tunnel port: #{reply_msg[:tunnel_port_numbers]}"
+      switch.configure(tunnel_port: {name: 'tun0', remote_ip: '127.0.0.1', remote_port: '1234'}) do |reply_msg|
+        info "> Switch configured tunnel port: #{reply_msg[:tunnel_port]}"
+      end
     end
   end
 
